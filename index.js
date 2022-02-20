@@ -129,11 +129,14 @@ async function collectButts() {
 }
 
 function updatebutts(buttUrl) {
-  db.get('butts').then(butts => {
-    // TODO - Verify the URL first and improve messaging to the user about cap/validation
-    if (butts.length <= 1000 && !butts.includes(buttUrl) && validURL(buttUrl)) { // TODO arbitray cap for now
+  // TODO arbitray cap for now
+  return db.get('butts').then(butts => {
+    if (butts.length <= 1000 && !butts.includes(buttUrl) && validURL(buttUrl)) {
       butts.push(buttUrl)
       db.set('butts', butts)
+      return true
+    } else {
+      return false
     }
   })
 }
@@ -212,7 +215,12 @@ client.on('messageCreate', async (msg) => {
     if (inMsg.startsWith(BotMessages.newButt)) {
       let newButtUrl = msg.content.split(`${BotMessages.newButt} `)[1]
       updatebutts(newButtUrl)
-      msg.channel.send(':peach: New Butt Added :peach: `' + newButtUrl + '`')
+        .then(buttStatus => {
+          if (buttStatus)
+            msg.channel.send(':peach: New Butt Added :peach: `' + newButtUrl + '`')
+          else
+            msg.channel.send(':peach: Skipping, that butt has already been added or this is an invalid URL :peach:')
+        })
     }
 
     // Delete a butt from the list
@@ -273,8 +281,10 @@ client.on('messageReactionAdd', (reactionOrig, user) => {
       else
         extractedUrl = reactedContent
       
-      updatebutts(extractedUrl)
-      reactionOrig.message.channel.send(':peach: Added this butt to the curated list :peach: `' + extractedUrl + '`')
+      updatebutts(extractedUrl).then(buttStatus => {
+        if (buttStatus)
+          reactionOrig.message.channel.send(':peach: Added this butt to the curated list :peach: `' + extractedUrl + '`')
+      })
     }
   }
 });
