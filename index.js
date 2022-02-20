@@ -74,6 +74,16 @@ db.get('butts').then(butts => {
   }
 })
 
+function validURL(str) {
+  var pattern = new RegExp('^(https?:\\/\\/)?'+ // protocol
+    '((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name
+    '((\\d{1,3}\\.){3}\\d{1,3}))'+ // OR ip (v4) address
+    '(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
+    '(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
+    '(\\#[-a-z\\d_]*)?$','i'); // fragment locator
+  return !!pattern.test(str);
+}
+
 function getUrl(subreddit, rType, timeString=null, afterId=null) {
   let query
   if (timeString) {
@@ -121,7 +131,7 @@ async function collectButts() {
 function updatebutts(buttUrl) {
   db.get('butts').then(butts => {
     // TODO - Verify the URL first and improve messaging to the user about cap/validation
-    if (butts.length <= 1000 && !butts.includes(buttUrl)) { // TODO arbitray cap for now
+    if (butts.length <= 1000 && !butts.includes(buttUrl) && validURL(buttUrl)) { // TODO arbitray cap for now
       butts.push(buttUrl)
       db.set('butts', butts)
     }
