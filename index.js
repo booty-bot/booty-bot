@@ -206,9 +206,14 @@ client.on('messageCreate', async (msg) => {
 
     // Delete a butt from the list
     if (inMsg.startsWith(BotMessages.delButt)) {
-      let index = parseInt(msg.content.split(`${BotMessages.delButt} `)[1])
-      deleteButt(index)
-      msg.channel.send(':x: Butt Deleted :x:')
+      if (msg.author.id === process.env['SUPERUSER']) {
+        let index = parseInt(msg.content.split(`${BotMessages.delButt} `)[1])
+        deleteButt(index)
+        msg.channel.send(':x: Butt Deleted :x:')
+      } else {
+        msg.channel.send(':x: Sorry, you do not have permission to delete :x:')
+      }
+      
     }
 
     // List all butts
@@ -232,7 +237,7 @@ client.on('messageCreate', async (msg) => {
         Adds a new image/gif/webm to the database (repalce [url] with a valid URL - be sure to add a space after the command).  URLs from Imgur/Red Gifs work best.
       
       :three: ${BotMessages.delButt} [index]
-        Deletes a butt from the database where [index] is the index in the DB.
+        Deletes a butt from the database where [index] is the index in the DB. (Super Admin Only).
 
       :four: ${BotMessages.listButt}
         Lists all current butt URLs in the database.`)
