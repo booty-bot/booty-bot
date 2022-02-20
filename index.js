@@ -1,4 +1,4 @@
-const { Client, Intents } = require('discord.js');
+const { Client, Intents, MessageAttachment } = require('discord.js');
 const Reddit = require('reddit')
 const axios = require('axios');
 const Database = require('@replit/database')
@@ -170,71 +170,76 @@ client.on('messageCreate', async (msg) => {
   // Disregard messages from the bot or anyhting that doesn't start with !
   if (msg.author.bot || !msg.content.startsWith('!')) return
 
-  // Unpack
-  let inMsg = msg.content.toLowerCase()
+  try {
+    // Unpack
+    let inMsg = msg.content.toLowerCase()
 
-  // Send a butt
-  if (inMsg.startsWith(BotMessages.gimmeDaButt)) {
-    let buttMsg = await msg.channel.send(':peach: Loading the Booty :peach:')
+    // Send a butt
+    if (inMsg.startsWith(BotMessages.gimmeDaButt)) {
+      let buttMsg = await msg.channel.send(':peach: Loading the Booty :peach:')
 
-    if (
-      inMsg.includes(`--${BotFlags.curated.verbose}`) || 
-      inMsg.includes(`-${BotFlags.curated.short}`)
-    ) {
-      getButt()
-        .then(thisButt => {
-          buttMsg.edit(!msg.channel.nsfw ? 
-            `NSFW :eye::lips::eye: || ${thisButt} ||` :
-            thisButt)
-      })
-    } else {
-      const collectedButt = await collectButts()
-      buttMsg.edit(!msg.channel.nsfw ? 
-            `NSFW :eye::lips::eye: || ${collectedButt} ||` :
-            collectedButt)
+      if (
+        inMsg.includes(`--${BotFlags.curated.verbose}`) || 
+        inMsg.includes(`-${BotFlags.curated.short}`)
+      ) {
+        getButt()
+          .then(thisButt => {
+            buttMsg.edit(!msg.channel.nsfw ? 
+              `NSFW :eye::lips::eye: || ${thisButt} ||` :
+              thisButt)
+        })
+      } else {
+        const collectedButt = await collectButts()
+        buttMsg.edit(!msg.channel.nsfw ? 
+              `NSFW :eye::lips::eye: || ${collectedButt} ||` :
+              collectedButt)
+      }
+      
     }
-    
-  }
 
-  // Add a butt to the list
-  if (inMsg.startsWith(BotMessages.newButt)) {
-    let newButtUrl = msg.content.split(`${BotMessages.newButt} `)[1]
-    updatebutts(newButtUrl)
-    msg.channel.send(':peach: New Butt Added :peach:')
-  }
+    // Add a butt to the list
+    if (inMsg.startsWith(BotMessages.newButt)) {
+      let newButtUrl = msg.content.split(`${BotMessages.newButt} `)[1]
+      updatebutts(newButtUrl)
+      msg.channel.send(':peach: New Butt Added :peach:')
+    }
 
-  // Delete a butt from the list
-  if (inMsg.startsWith(BotMessages.delButt)) {
-    let index = parseInt(msg.content.split(`${BotMessages.delButt} `)[1])
-    deleteButt(index)
-    msg.channel.send(':x: Butt Deleted :x:')
-  }
+    // Delete a butt from the list
+    if (inMsg.startsWith(BotMessages.delButt)) {
+      let index = parseInt(msg.content.split(`${BotMessages.delButt} `)[1])
+      deleteButt(index)
+      msg.channel.send(':x: Butt Deleted :x:')
+    }
 
-  // List all butts
-  if (inMsg.startsWith(BotMessages.listButt)) {
-    // TODO - better formatting
-    db.get('butts').then(butts => {
-      console.log(butts);
-      let formattedButts = Object.assign({}, butts)
-      msg.channel.send('`' + JSON.stringify(formattedButts, null, 4) + '`')
-    })
-  }
+    // List all butts
+    if (inMsg.startsWith(BotMessages.listButt)) {
+      db.get('butts').then(butts => {
+        console.log(butts);
+        let formattedButts = Object.assign({}, butts)
+        let bufferButts = Buffer.from(JSON.stringify(formattedButts, null, 4))
+        let buttAttach = new MessageAttachment(bufferButts, 'butt_list.txt')
+        msg.channel.send({files: [buttAttach]})
+      })
+    }
 
-  // List commands
-  if (inMsg.startsWith(BotMessages.listCommands)) {
-    // TODO - Format and use embed https://discordjs.guide/popular-topics/embeds.html#using-the-embed-constructor
-    msg.channel.send(`:book: Here are the available commands :book:
-    :one: ${BotMessages.gimmeDaButt}
-      Posts a random butt image/gif from the interwebz.  Will mark as a spoiler in a non-NSFW channel.  Use the optional -c or --curated flag to pull randomly from a curated list of butts.  Add a reaction to a response to auto add it to the curated list.
+    // List commands
+    if (inMsg.startsWith(BotMessages.listCommands)) {
+      msg.channel.send(`:book: Here are the available commands :book:
+      :one: ${BotMessages.gimmeDaButt}
+        Posts a random butt image/gif from the interwebz.  Will mark as a spoiler in a non-NSFW channel.  Use the optional -c or --curated flag to pull randomly from a curated list of butts.  Add a reaction to a response to auto add it to the curated list.
 
-    :two: ${BotMessages.newButt} [url]
-      Adds a new image/gif/webm to the database (repalce [url] with a valid URL - be sure to add a space after the command).  URLs from Imgur/Red Gifs work best.
-    
-    :three: ${BotMessages.delButt} [index]
-      Deletes a butt from the database where [index] is the index in the DB.
+      :two: ${BotMessages.newButt} [url]
+        Adds a new image/gif/webm to the database (repalce [url] with a valid URL - be sure to add a space after the command).  URLs from Imgur/Red Gifs work best.
+      
+      :three: ${BotMessages.delButt} [index]
+        Deletes a butt from the database where [index] is the index in the DB.
 
-    :four: ${BotMessages.listButt}
-      Lists all current butt URLs in the database.`)
+      :four: ${BotMessages.listButt}
+        Lists all current butt URLs in the database.`)
+    }
+
+  } catch(err) {
+    console.log('Error:', err.message)
   }
 
 })
