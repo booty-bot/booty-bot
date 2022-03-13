@@ -35,6 +35,7 @@ const BotMessages = {
 
 const BotFlags = {
   curated: { verbose: 'curated', short: 'c' },
+  hardcore: { verbose: 'hardcore', short: 'h' },
 }
 
 const subreddits = [
@@ -46,6 +47,16 @@ const subreddits = [
   'rice_cakes',
   'asstastic',
   'ass',
+]
+
+const hcSubreddits = [
+  'anal',
+  'AnalGW',
+  'amateur_anal',
+  'MasterOfAnal',
+  'anal_gifs',
+  'AnalOrgasms',
+  'lesbianasslick',
 ]
 
 const times = [
@@ -98,10 +109,19 @@ function getRandomIndex(inArray) {
   return inArray[Math.floor(Math.random() * inArray.length)]
 }
 
-async function collectButts() {
+async function collectButts(hcMode) {
+  if (!hcMode)
+    hcMode = false;
+
   let redditButtUrls = [];
-  for (const subreddit of subreddits) {
-    redditButtUrls = redditButtUrls.concat(getUrl(subreddit, alwaysTypes[0], times[0]))
+  if (hcMode) {
+    for (const subreddit of hcSubreddits) {
+      redditButtUrls = redditButtUrls.concat(getUrl(subreddit, alwaysTypes[0], times[0]))
+    }
+  } else {
+    for (const subreddit of subreddits) {
+      redditButtUrls = redditButtUrls.concat(getUrl(subreddit, alwaysTypes[0], times[0]))
+    }
   }
 
   console.log(redditButtUrls)
@@ -202,6 +222,20 @@ client.on('messageCreate', async (msg) => {
               `NSFW :eye::lips::eye: || ${thisButt} ||` :
               thisButt)
         })
+      } else if (
+        (
+          inMsg.includes(`--${BotFlags.hardcore.verbose}`) || 
+          inMsg.includes(`-${BotFlags.hardcore.short}`)
+        ) &&
+       !(
+          inMsg.includes(`--${BotFlags.curated.verbose}`) ||
+          inMsg.includes(`-${BotFlags.curated.short}`)
+       )
+      ) {
+        const collectedButtHc = await collectButts(true)
+        buttMsg.edit(!msg.channel.nsfw ? 
+              `NSFW --Hardcore Mode Super Spicy :eye::lips::eye: || ${collectedButtHc} ||` :
+              `${collectedButtHc} --Hardcore Mode Super Spicy`)
       } else {
         const collectedButt = await collectButts()
         buttMsg.edit(!msg.channel.nsfw ? 
@@ -250,7 +284,7 @@ client.on('messageCreate', async (msg) => {
     if (inMsg.startsWith(BotMessages.listCommands)) {
       msg.channel.send(`:book: Here are the available commands :book:
       :one: ${BotMessages.gimmeDaButt}
-        Posts a random butt image/gif from the interwebz.  Will mark as a spoiler in a non-NSFW channel.  Use the optional -c or --curated flag to pull randomly from a curated list of butts.  Add a reaction to a response to auto add it to the curated list.
+        Posts a random butt image/gif from the interwebz.  Will mark as a spoiler in a non-NSFW channel.  Use the optional -c or --curated flag to pull randomly from a curated list of butts.  Add a reaction to a response to auto add it to the curated list.  Use the --hardcore or -h flag for hardcore butt stuff.
 
       :two: ${BotMessages.newButt} [url]
         Adds a new image/gif/webm to the database (repalce [url] with a valid URL - be sure to add a space after the command).  URLs from Imgur/Red Gifs work best.
@@ -274,7 +308,7 @@ client.on('messageReactionAdd', (reactionOrig, user) => {
     let reactedContent =  reactionOrig.message.content
     console.log(reactedContent)
     // Parse
-    if (reactedContent.includes('imgur') || reactedContent.includes('redgifs')) {
+    if ((reactedContent.includes('imgur') || reactedContent.includes('redgifs')) && !reactedContent.includes('--Hardcore')) {
       let extractedUrl;
       if (reactedContent.includes('||'))
         extractedUrl = reactedContent.split('||')[1].trim()
