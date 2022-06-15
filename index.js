@@ -3,11 +3,17 @@ const Reddit = require('reddit')
 const axios = require('axios');
 const Database = require('@replit/database')
 const keepAlive = require('./server')
+const { Octokit, App } = require("octokit");
+const fs = require('fs');
 
 const username = process.env['UNAME']
 const password = process.env['PWORD']
 const appId = process.env['CLIENTID']
 const appSecret = process.env['SECRET']
+
+const octokit = new Octokit({
+  auth: process.env['GIST_PERSONAL_ACCESS_TOKEN']
+})
 
 const reddit = new Reddit({
   username,
@@ -36,6 +42,7 @@ const BotMessages = {
 const BotFlags = {
   curated: { verbose: 'curated', short: 'c' },
   hardcore: { verbose: 'hardcore', short: 'h' },
+  filters: { imgur: 'imgur', redgifs: 'redgifs' },
 }
 
 const subreddits = [
@@ -52,7 +59,6 @@ const subreddits = [
 const hcSubreddits = [
   'anal',
   'AnalGW',
-  'amateur_anal',
   'MasterOfAnal',
   'anal_gifs',
   'AnalOrgasms',
@@ -85,6 +91,41 @@ db.get('butts').then(butts => {
   }
 })
 
+function logInfo(info) {
+  try {
+    nowDate = new Date()
+    info = `${nowDate.toISOString()} - ${info}`
+
+    octokit.request(`GET /gists/${process.env['GIST_ID']}`, {
+      gist_id: 'GIST_ID'
+    }).then(res => {
+      fileContents = res.data.files['booty_bot.log'].content
+      newlines = fileContents.split(/\r\n|\r|\n/).length
+
+      let newContents = ''
+      if (newlines <= 1000) {
+        newContents = fileContents
+      }
+
+      fileContents += '\n'
+      fileContents += info
+
+      octokit.request(`PATCH /gists/${process.env['GIST_ID']}`, {
+        gist_id: process.env['GIST_ID'],
+        description: 'An update to a gist',
+        files: {
+          'booty_bot.log': {
+            content: fileContents
+          }
+        }
+      })
+    })
+  } catch(err) {
+    console.log('Error:', err.message)
+    logInfo(err.message)
+  }
+}
+
 function validURL(str) {
   var pattern = new RegExp('^(https?:\\/\\/)?'+ // protocol
     '((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name
@@ -95,7 +136,7 @@ function validURL(str) {
   return !!pattern.test(str);
 }
 
-function getUrl(subreddit, rType, timeString=null, afterId=null) {
+function getUrl(subreddit, rType, timeString=null, afterId=null, filterImgur=false) {
   let query
   if (timeString) {
     query = `?${timeString}${afterId ? '&after=' : ''}${afterId ? afterId : ''}`
@@ -109,20 +150,30 @@ function getRandomIndex(inArray) {
   return inArray[Math.floor(Math.random() * inArray.length)]
 }
 
-async function collectButts(hcMode) {
+async function collectButts(hcMode, imgurMode) {
   if (!hcMode)
     hcMode = false;
+  if (!imgurMode)
+    imgurMode = false;
 
   let redditButtUrls = [];
   if (hcMode) {
+    console.log('hc mode')
     for (const subreddit of hcSubreddits) {
       redditButtUrls = redditButtUrls.concat(getUrl(subreddit, alwaysTypes[0], times[0]))
+    }
+  } else if (imgurMode) {
+    console.log('imgur mode')
+    for (const subreddit of subreddits) {
+      redditButtUrls = redditButtUrls.concat(getUrl(subreddit, alwaysTypes[0], times[0], false, imgurMode))
     }
   } else {
     for (const subreddit of subreddits) {
       redditButtUrls = redditButtUrls.concat(getUrl(subreddit, alwaysTypes[0], times[0]))
     }
   }
+
+  
 
   console.log(redditButtUrls)
   let allDemRedditButts = await Promise.all(
@@ -141,6 +192,12 @@ async function collectButts(hcMode) {
 
   // Map and flatten the array
   allDemRedditButts = allDemRedditButts.map(e => e.data).flat()
+  console.log(allDemRedditButts)
+
+  if (imgurMode) {
+    console.log('Imgur mode')
+    allDemRedditButts = allDemRedditButts.filter(e => e.includes('imgur'))
+  }
   console.log(allDemRedditButts)
 
   // Get a random one
@@ -222,6 +279,14 @@ client.on('messageCreate', async (msg) => {
               `NSFW :eye::lips::eye: || ${thisButt} ||` :
               thisButt)
         })
+      } else if (inMsg.includes(`--${BotFlags.filters.imgur}`)) {
+        // TODO Need to refactor
+        console.log('refactor block');
+        const collectedButtImgur = await collectButts(false, true)
+        buttMsg.edit(!msg.channel.nsfw ? 
+              `NSFW --Imgur Mode Super Spicy :eye::lips::eye: ||             ${collectedButtImgur} ||` :
+              `${collectedButtImgur} --Imgur Mode Super Spicy`)
+        // TODO Need to refactor
       } else if (
         (
           inMsg.includes(`--${BotFlags.hardcore.verbose}`) || 
@@ -298,28 +363,34 @@ client.on('messageCreate', async (msg) => {
 
   } catch(err) {
     console.log('Error:', err.message)
+    logInfo(err.message)
   }
 
 })
 
 client.on('messageReactionAdd', (reactionOrig, user) => {
   console.log(reactionOrig, user)
-  if (reactionOrig.message.author.id === client.user.id) {
-    let reactedContent =  reactionOrig.message.content
-    console.log(reactedContent)
-    // Parse
-    if ((reactedContent.includes('imgur') || reactedContent.includes('redgifs')) && !reactedContent.includes('--Hardcore')) {
-      let extractedUrl;
-      if (reactedContent.includes('||'))
-        extractedUrl = reactedContent.split('||')[1].trim()
-      else
-        extractedUrl = reactedContent
-      
-      updatebutts(extractedUrl).then(buttStatus => {
-        if (buttStatus)
-          reactionOrig.message.channel.send(':peach: Added this butt to the curated list :peach: `' + extractedUrl + '`')
-      })
+  try {
+    if (reactionOrig.message.author.id === client.user.id) {
+      let reactedContent =  reactionOrig.message.content
+      console.log(reactedContent)
+      // Parse
+      if ((reactedContent.includes('imgur') || reactedContent.includes('redgifs')) && !reactedContent.includes('--Hardcore')) {
+        let extractedUrl;
+        if (reactedContent.includes('||'))
+          extractedUrl = reactedContent.split('||')[1].trim()
+        else
+          extractedUrl = reactedContent
+        
+        updatebutts(extractedUrl).then(buttStatus => {
+          if (buttStatus)
+            reactionOrig.message.channel.send(':peach: Added this butt to the curated list :peach: `' + extractedUrl + '`')
+        })
+      }
     }
+  } catch(err) {
+    console.log('Error:', err.message)
+    logInfo(err.message)
   }
 });
 
