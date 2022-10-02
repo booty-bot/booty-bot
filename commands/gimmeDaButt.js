@@ -45,7 +45,10 @@ module.exports = {
       console.log('Got da booty')
       console.log(resp)
 
-      message = resp?.url || errorMessage;
+      message = interaction?.channel?.nsfw ?
+        (resp?.url || errorMessage) :
+        `NSFW :eye::lips::eye: || ${resp?.url || errorMessage} ||`
+        ;
     } catch (err) {
       message = errorMessage;
       console.log('Error in GimmeDaButt');
